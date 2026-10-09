@@ -4,6 +4,7 @@ import cors from 'cors';
 
 import { router } from './routes/index.js'
 
+config()
 const app = express()
 const port = process.env.PORT || 3000
 
@@ -15,7 +16,6 @@ const myMiddelware = (req, res, next) => {
   next()
 }
 
-config()
 app.use(express.json())
 app.use(myMiddelware)
 

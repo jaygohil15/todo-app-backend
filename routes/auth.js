@@ -51,7 +51,7 @@ const registerUser = async (req, res) => {
             res.status(200).json({
                 status: 'success',
                 statusCode: 201,
-                message: 'User registered successfully!'
+                message: `${result.rows[0].username} registered successfully!`
             })
         } else {
             throw new Error('Something went wrong')

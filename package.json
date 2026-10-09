@@ -5,9 +5,12 @@
   "type": "module",
   "main": "app.js",
   "scripts": {
-    "start": "nodemon app.js",
+    "start": "node app.js",
     "dev": "nodemon app.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "docker:build": "docker build -t to-do-backend .",
+    "docker:run": "docker run --env-file .env -p 3000:3000 --name to-do-backend to-do-backend",
+    "docker:stop": "docker stop to-do-backend; docker rm to-do-backend"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
