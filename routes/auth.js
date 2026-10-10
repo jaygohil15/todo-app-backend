@@ -1,12 +1,13 @@
-import { registerUserQuery } from '../db/queries.js'
+import { registerUserQuery, getPasswordHashWithUsername, getPasswordHashWithEmail } from '../db/queries.js'
 import { query } from '../db/index.js'
-import { genSalt, hash } from 'bcrypt'
+import { compare, genSalt, hash } from 'bcrypt'
 
 const SALT_ROUNDS = 10
+const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
 
 const registerUser = async (req, res) => {
     try {
-        console.log('/auth/register Start')
+        console.log('/auth/register start')
         const {
             username = '',
             first_name = '',
@@ -18,20 +19,18 @@ const registerUser = async (req, res) => {
         if (username.length <= 3) {
             errMsg = 'username must be greater than 3 characters'
         }
-        if (first_name.length <= 3) {
-            errMsg = 'first_name must be greater than 3 characters'
+        if (first_name.length <= 0) {
+            errMsg = 'first_name must be greater than 0 characters'
         }
-        if (email.length === 0) {
-            errMsg = 'email can not be empty'
-        }
-        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
         if (!emailRegex.test(email)) {
             errMsg = 'Please provide valid email address'
         }
+
         if (password.length === 0) {
             errMsg = 'password can not be empty'
         }
         if (errMsg) {
+            console.log(`/auth/register Validation Error: ${errMsg}`)
             return res.status(400).json({
                 status: 'error',
                 statusCode: 400,
@@ -56,7 +55,7 @@ const registerUser = async (req, res) => {
         } else {
             throw new Error('Something went wrong')
         }
-        console.log('/auth/register End')
+        console.log('/auth/register end')
 
     } catch (err) {
         console.log('Error in /auth/register api', err)
@@ -86,6 +85,80 @@ const registerUser = async (req, res) => {
     }
 }
 
+const loginUser = async (req, res) => {
+    try {
+        console.log('/auth/login start')
+        const {
+            username = '',
+            email = '',
+            password = '',
+        } = req.body
+
+        let errMsg = ''
+        if (!username && !emailRegex.test(email)) {
+            errMsg = 'Email address or username cannot be empty'
+        }
+        if (!password) {
+            errMsg = 'Password cannot be empty'
+        }
+
+        if (errMsg) {
+            console.log(`/auth/login Validation Error: ${errMsg}`)
+            return res.status(400).json({
+                status: 'error',
+                statusCode: 400,
+                message: errMsg
+            })
+        }
+
+        let result
+
+        if (username) {
+            const queryText = getPasswordHashWithUsername(username)
+            result = await query(queryText)
+        } else if (email) {
+            const queryText = getPasswordHashWithEmail(email)
+            result = await query(queryText)
+        }
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({
+                status: 'error',
+                statusCode: 404,
+                message: 'User not found'
+            })
+        }
+
+        if (result.rowCount > 0) {
+            const storedHash = result.rows[0].password_hash
+            const isMatch = await compare(password, storedHash)
+            if (isMatch) {
+                res.status(200).json({
+                    status: 'success',
+                    statusCode: 200,
+                    message: 'Login successful'
+                })
+            } else {
+                res.status(401).json({
+                    status: 'error',
+                    statusCode: 401,
+                    message: 'Invalid password'
+                })
+            }
+        }
+
+        console.log('/auth/login end')
+    } catch (err) {
+        console.log('Error in /auth/login api', err)
+        res.status(400).json({
+            status: 'error',
+            statusCode: 400,
+            message: 'Something went wrong'
+        })
+    }
+}
+
 export {
-    registerUser
+    registerUser,
+    loginUser
 }

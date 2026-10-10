@@ -14,7 +14,23 @@ const registerUserQuery = (username, first_name, email, password_hash) => {
     }
 }
 
+const getPasswordHashWithUsername = (username) => {
+    return {
+        text: `select password_hash from users where username = $1`,
+        values: [username]
+    }
+}
+
+const getPasswordHashWithEmail = (email) => {
+    return {
+        text: `select password_hash from users where email = $1`,
+        values: [email]
+    }
+}
+
 export {
     insertTodo,
-    registerUserQuery
+    registerUserQuery,
+    getPasswordHashWithUsername,
+    getPasswordHashWithEmail
 }
