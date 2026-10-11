@@ -1,6 +1,8 @@
-import { registerUserQuery, getPasswordHashWithUsername, getPasswordHashWithEmail } from '../db/queries.js'
+import { registerUserQuery, getPasswordHashWithUsername, getPasswordHashWithEmail, insertSessionToken, deleteActiveSession } from '../db/queries.js'
 import { query } from '../db/index.js'
 import { compare, genSalt, hash } from 'bcrypt'
+import jwt from 'jsonwebtoken'
+import { createHash, randomBytes } from 'crypto'
 
 const SALT_ROUNDS = 10
 const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
@@ -129,23 +131,57 @@ const loginUser = async (req, res) => {
             })
         }
 
-        if (result.rowCount > 0) {
-            const storedHash = result.rows[0].password_hash
-            const isMatch = await compare(password, storedHash)
-            if (isMatch) {
-                res.status(200).json({
-                    status: 'success',
-                    statusCode: 200,
-                    message: 'Login successful'
-                })
-            } else {
-                res.status(401).json({
-                    status: 'error',
-                    statusCode: 401,
-                    message: 'Invalid password'
-                })
-            }
+        console.log('result.rows[0]', result.rows[0])
+
+        const storedHash = result.rows[0].password_hash
+        const isMatch = await compare(password, storedHash)
+        if (!isMatch) {
+            return res.status(401).json({
+                status: 'error',
+                statusCode: 401,
+                message: 'Invalid password'
+            })
         }
+
+        const userId = result.rows[0].user_id
+        const reqUserAgent = req.headers['user-agent']
+
+
+        const deleteActiveSessionQueryText = deleteActiveSession(userId, reqUserAgent)
+        await query(deleteActiveSessionQueryText)
+
+        console.log('process.env.ACCESS_TOKEN_SECRET', process.env.ACCESS_TOKEN_SECRET)
+
+        const accesstoken = jwt.sign({
+            user_id: userId,
+        }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '15m' })
+
+        console.log('accesstoken', accesstoken)
+
+        const rawRefreshToken = randomBytes(40).toString('hex')
+        console.log('rawRefreshToken', rawRefreshToken)
+        const tokenHash = createHash('sha256').update(rawRefreshToken).digest('hex')
+        console.log('tokenHash', tokenHash)
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        console.log('expiresAt', expiresAt)
+
+        const queryText = insertSessionToken(result.rows[0].user_id, tokenHash, req.headers["x-forwarded-for"], req.headers['user-agent'], expiresAt)
+        await query(queryText)
+
+        res.status(200).json({
+            status: 'success',
+            statusCode: 200,
+            message: 'Login successful',
+            accesstoken,
+            refreshToken: rawRefreshToken,
+            user_id: result.rows[0].user_id,
+            request: {
+                body: req.body,
+                headers: req.headers,
+                query: req.query,
+                params: req.params
+            }
+        })
 
         console.log('/auth/login end')
     } catch (err) {
