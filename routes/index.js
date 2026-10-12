@@ -7,7 +7,7 @@ import { registerUser, loginUser } from './auth.js'
 // Rate limit for the login endpoint
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15-minute window
-  max: 1, // Limit each IP to 5 login requests per window
+  max: 15, // Limit each IP to 5 login requests per window
   message: {
     message: "Too many login attempts from this IP. Please try again after 15 minutes.",
   },
